@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/aop
+        http://www.springframework.org/schema/aop/spring-aop.xsd
+         http://www.springframework.org/schema/tx
+        http://www.springframework.org/schema/tx/spring-tx.xsd
+        http://www.springframework.org/schema/context
+        http://www.springframework.org/schema/context/spring-context.xsd">
+    <!--扫描注解-->
+    <context:component-scan base-package="com.zhiyou"/>
+
+    <!-- =========================== Mybatis配置 ============================== -->
+    <!--配置文件位置-->
+    <context:property-placeholder location="classpath:db.properties"/>
+    <!-- 数据源 -->
+    <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+        <property name="driverClassName" value="${jdbc.driverClassName}"/>
+        <property name="url" value="${jdbc.url}"/>
+        <property name="username" value="${jdbc.username}"/>
+        <property name="password" value="${jdbc.password}"/>
+    </bean>
+    <!--事务管理器-->
+    <bean id="txmanager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"/>
+    </bean>
+
+    <!--扫描事务-->
+    <tx:annotation-driven transaction-manager="txmanager"/>
+
+    <!--创建生成sqlSessionFactory的bean-->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"/>
+        <property name="configLocation" value="classpath:mybatis.xml"/>
+    </bean>
+
+    <!--扫描mapper并创建mapper对象-->
+    <bean id="scannerConfigurer" class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"/>
+        <property name="basePackage" value="com.zhiyou.mapper"/>
+    </bean>
+    <!-- =========================== Shiro配置 ============================== -->
+    <!-- 0 自定义域类 -->
+    <bean id="userAuthorRealm" class="com.zhiyou.realm.UserAuthorRealm"></bean>
+
+    <!-- 1 安全管理器-->
+    <bean id="securityManager" class="org.apache.shiro.web.mgt.DefaultWebSecurityManager">
+        <property name="realm" ref="userAuthorRealm"/>
+    </bean>
+
+    <!-- 2 Shiro拦截器-->
+    <bean id="shiroFilterr" class="org.apache.shiro.spring.web.ShiroFilterFactoryBean">
+        <property name="securityManager" ref="securityManager"/>
+        <!-- 没有认证,跳转登录页面 -->
+        <property name="loginUrl" value="/index.jsp"/>
+
+        <!-- 没有权限,跳转error页面 -->
+        <property name="unauthorizedUrl" value="/error.jsp"/>
+
+        <!-- 定义放行路径,拦截路径 -->
+        <property name="filterChainDefinitions">
+            <value>
+                /login.do = anon
+                /logout.do = anon
+                /index.jsp = anon
+                /error.jsp = anon
+
+                <!-- roles["mgr","admin"] 是同时需要拥有mgr以及admin两个角色才行-->
+                /user/add.do = authc,roles["mgr"],perms["/add"]
+                /user/delete.do = authc,roles["admin"],perms["/delete"]
+                /user/update.do = authc,roles["mgr"],perms["/update"]
+                /user/*.do = authc
+                /** = authc
+            </value>
+        </property>
+    </bean>
+
+</beans>
